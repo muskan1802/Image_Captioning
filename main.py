@@ -165,9 +165,53 @@ def preprocess_img(img):
     img = preprocess_input(img)
     return img
 
-img = preprocess_img(IMG_PATH + "1000268201_693b08cb0e.jpg")
-plt.imshow(img[0] )
-plt.show()
+# img = preprocess_img(IMG_PATH + "1000268201_693b08cb0e.jpg")
+# plt.imshow(img[0])
+# plt.show()
 
+def encode_image(img):
+    img = preprocess_img(img)
+    feature_vector = model_new.predict(img)
+    feature_vector = feature_vector.reshape((-1,))
+    # print(feature_vector.shape)
+    return feature_vector
 
+# print(encode_image(IMG_PATH + "1000268201_693b08cb0e.jpg"))
 
+start = time()
+encoding_train = {}
+#image_id -> feature_vector extracted from resnet image
+
+for ix,img_id in enumerate(train):
+    img_path = IMG_PATH+"/"+img_id+".jpg"
+    encoding_train[img_id] = encode_image(img_path)
+
+    if ix%100 == 0:
+        print("Encoding in Progress Time step %d "%ix)
+
+end_t = time()
+print("Total time taken :", end_t-start)
+
+#stroe everything to the disk - pickle is used for that allows us to convert (store ram data to disk)
+
+with open("encoded_train_features.pkl","wb") as f:
+    pickle.dump(encoding_train,f)
+
+start_t = time()
+encoding_test = {}
+#image_id -> feature_vector extracted from resnet image
+
+for ix,img_id in enumerate(test):
+    img_path = IMG_PATH+"/"+img_id+".jpg"
+    encoding_test[img_id] = encode_image(img_path)
+
+    if ix%100 == 0:
+        print("Test Encoding in Progress Time step %d "%ix)
+
+end_tt = time()
+print("Total time taken(test) :", end_tt-start_t)
+
+#store everything to the disk - pickle is used for that allows us to convert (store ram data to disk)
+
+with open("encoded_test_features.pkl","wb") as f:
+    pickle.dump(encoding_test,f)
