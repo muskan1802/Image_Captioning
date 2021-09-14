@@ -178,40 +178,102 @@ def encode_image(img):
 
 # print(encode_image(IMG_PATH + "1000268201_693b08cb0e.jpg"))
 
-start = time()
-encoding_train = {}
-#image_id -> feature_vector extracted from resnet image
+# start = time()
+# encoding_train = {}
+# #image_id -> feature_vector extracted from resnet image
+#
+# for ix,img_id in enumerate(train):
+#     img_path = IMG_PATH+"/"+img_id+".jpg"
+#     encoding_train[img_id] = encode_image(img_path)
+#
+#     if ix%100 == 0:
+#         print("Encoding in Progress Time step %d "%ix)
+#
+# end_t = time()
+# print("Total time taken :", end_t-start)
+#
+# #stroe everything to the disk - pickle is used for that allows us to convert (store ram data to disk)
+#
+# with open("encoded_train_features.pkl","wb") as f:
+#     pickle.dump(encoding_train,f)
+#
+# start_t = time()
+# encoding_test = {}
+# #image_id -> feature_vector extracted from resnet image
+#
+# for ix,img_id in enumerate(test):
+#     img_path = IMG_PATH+"/"+img_id+".jpg"
+#     encoding_test[img_id] = encode_image(img_path)
+#
+#     if ix%100 == 0:
+#         print("Test Encoding in Progress Time step %d "%ix)
+#
+# end_tt = time()
+# print("Total time taken(test) :", end_tt-start_t)
+#
+# #store everything to the disk - pickle is used for that allows us to convert (store ram data to disk)
+#
+# with open("encoded_test_features.pkl","wb") as f:
+#     pickle.dump(encoding_test,f)
 
-for ix,img_id in enumerate(train):
-    img_path = IMG_PATH+"/"+img_id+".jpg"
-    encoding_train[img_id] = encode_image(img_path)
+# DATA PER-PROCESSING FOR CAPTIONS - since every word is a feature and it needs to be represented using no
 
-    if ix%100 == 0:
-        print("Encoding in Progress Time step %d "%ix)
+#Vocab
 
-end_t = time()
-print("Total time taken :", end_t-start)
+word_to_idx = {}
+idx_to_word = {}
 
-#stroe everything to the disk - pickle is used for that allows us to convert (store ram data to disk)
+for i,word in enumerate(total_words):
+    word_to_idx[word] = i
+    idx_to_word[i+1] = word
 
-with open("encoded_train_features.pkl","wb") as f:
-    pickle.dump(encoding_train,f)
+#Two special words
 
-start_t = time()
-encoding_test = {}
-#image_id -> feature_vector extracted from resnet image
+idx_to_word[1846] = 'startseq'
+word_to_idx['startseq'] = 1846
 
-for ix,img_id in enumerate(test):
-    img_path = IMG_PATH+"/"+img_id+".jpg"
-    encoding_test[img_id] = encode_image(img_path)
+idx_to_word[1847] = 'endseq'
+word_to_idx['endseq'] = 1847
 
-    if ix%100 == 0:
-        print("Test Encoding in Progress Time step %d "%ix)
+vocab_size = len(word_to_idx)+1
+# print("vocab_size",vocab_size)
 
-end_tt = time()
-print("Total time taken(test) :", end_tt-start_t)
+for key in train_description.keys():
+    for cap in train_description[key]:
+        max_len = max(max_len,len(cap.split()))
 
-#store everything to the disk - pickle is used for that allows us to convert (store ram data to disk)
+## Data Loader(GENERATOR)
+#language modeling - P(wt+1|w1....wt)
 
-with open("encoded_test_features.pkl","wb") as f:
-    pickle.dump(encoding_test,f)
+def data_generator(train_description,encoding_Train,word_to_idx,max_len,batch_size):
+    x1,x2,y = [],[],[]
+
+    n=0
+
+    while True:
+        for key,desc_list in train_description.items():
+            n+=1
+
+            photo = encoding_Train[key+'.jpg']
+            for desc in desc_list:
+                seq = [word_to_idx[word] for word in desc.split() if word in word_to_idx]
+                for i in range(1,len(seq)):
+                    x1 = seq[0:i]
+                    yi = seq[i]
+
+                    #0 denote padding word - post means after the sequence 0 is added
+                    xi = pad_sequences([xi],maxlen=max_len,value=0,padding='post')[0]
+                    yi = to_categorical([yi],num_classes=vocab_size)[0]
+
+                    x1.append(photo)
+                    x2.append(xi)
+                    y.append(yi)
+
+                if n==batch_size:
+                    yield [[np.array(x1),np.array(x2)],np.array(y)]
+
+                    x1,x2,y = [],[],[]
+                    n=0
+
+## WORD EMBEDDINGS
+
