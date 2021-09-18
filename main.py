@@ -237,7 +237,7 @@ word_to_idx['endseq'] = 1847
 
 vocab_size = len(word_to_idx)+1
 # print("vocab_size",vocab_size)
-
+max_len=0
 for key in train_description.keys():
     for cap in train_description[key]:
         max_len = max(max_len,len(cap.split()))
@@ -275,5 +275,33 @@ def data_generator(train_description,encoding_Train,word_to_idx,max_len,batch_si
                     x1,x2,y = [],[],[]
                     n=0
 
-## WORD EMBEDDINGS
+## WORD EMBEDDINGS - Glove Embedding(6B50D.txt)
+f = open("glove.6B.50d.txt",encoding='utf8')
+embedding_index={}
+
+for line in f:
+    values = line.split()
+
+    word = values[0]
+    embedding_word = np.array(values[1:],dtype='float')
+    embedding_index[word] = embedding_word
+f.close()
+#print(embedding_index['apple'])
+
+def get_embedding_matrix():
+    emb_dim = 50
+    matrix = np.zeros((vocab_size,emb_dim))
+    for word,idx in word_to_idx.items():
+        embedding_vector = embedding_index.get(word)
+
+        if embedding_vector is not None:
+            matrix[idx] = embedding_vector
+    return matrix
+
+embedding_matrix = get_embedding_matrix()
+embedding_matrix.shape
+
+# MODEL ARCHITECTURE
+
+
 
