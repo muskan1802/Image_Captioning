@@ -178,43 +178,43 @@ def encode_image(img):
 
 # print(encode_image(IMG_PATH + "1000268201_693b08cb0e.jpg"))
 
-# start = time()
-# encoding_train = {}
-# #image_id -> feature_vector extracted from resnet image
-#
-# for ix,img_id in enumerate(train):
-#     img_path = IMG_PATH+"/"+img_id+".jpg"
-#     encoding_train[img_id] = encode_image(img_path)
-#
-#     if ix%100 == 0:
-#         print("Encoding in Progress Time step %d "%ix)
-#
-# end_t = time()
-# print("Total time taken :", end_t-start)
-#
-# #stroe everything to the disk - pickle is used for that allows us to convert (store ram data to disk)
-#
-# with open("encoded_train_features.pkl","wb") as f:
-#     pickle.dump(encoding_train,f)
-#
-# start_t = time()
-# encoding_test = {}
-# #image_id -> feature_vector extracted from resnet image
-#
-# for ix,img_id in enumerate(test):
-#     img_path = IMG_PATH+"/"+img_id+".jpg"
-#     encoding_test[img_id] = encode_image(img_path)
-#
-#     if ix%100 == 0:
-#         print("Test Encoding in Progress Time step %d "%ix)
-#
-# end_tt = time()
-# print("Total time taken(test) :", end_tt-start_t)
-#
-# #store everything to the disk - pickle is used for that allows us to convert (store ram data to disk)
-#
-# with open("encoded_test_features.pkl","wb") as f:
-#     pickle.dump(encoding_test,f)
+start = time()
+encoding_train = {}
+#image_id -> feature_vector extracted from resnet image
+
+for ix,img_id in enumerate(train):
+    img_path = IMG_PATH+"/"+img_id+".jpg"
+    encoding_train[img_id] = encode_image(img_path)
+
+    if ix%100 == 0:
+        print("Encoding in Progress Time step %d "%ix)
+
+end_t = time()
+print("Total time taken :", end_t-start)
+
+#stroe everything to the disk - pickle is used for that allows us to convert (store ram data to disk)
+
+with open("encoded_train_features.pkl","wb") as f:
+    pickle.dump(encoding_train,f)
+
+start_t = time()
+encoding_test = {}
+#image_id -> feature_vector extracted from resnet image
+
+for ix,img_id in enumerate(test):
+    img_path = IMG_PATH+"/"+img_id+".jpg"
+    encoding_test[img_id] = encode_image(img_path)
+
+    if ix%100 == 0:
+        print("Test Encoding in Progress Time step %d "%ix)
+
+end_tt = time()
+print("Total time taken(test) :", end_tt-start_t)
+
+#store everything to the disk - pickle is used for that allows us to convert (store ram data to disk)
+
+with open("encoded_test_features.pkl","wb") as f:
+    pickle.dump(encoding_test,f)
 
 # DATA PER-PROCESSING FOR CAPTIONS - since every word is a feature and it needs to be represented using no
 
@@ -245,7 +245,7 @@ for key in train_description.keys():
 ## Data Loader(GENERATOR)
 #language modeling - P(wt+1|w1....wt)
 
-def data_generator(train_description,encoding_Train,word_to_idx,max_len,batch_size):
+def data_generator(train_description,encoding_train,word_to_idx,max_len,batch_size):
     x1,x2,y = [],[],[]
 
     n=0
@@ -254,7 +254,7 @@ def data_generator(train_description,encoding_Train,word_to_idx,max_len,batch_si
         for key,desc_list in train_description.items():
             n+=1
 
-            photo = encoding_Train[key+'.jpg']
+            photo = encoding_train[key+'.jpg']
             for desc in desc_list:
                 seq = [word_to_idx[word] for word in desc.split() if word in word_to_idx]
                 for i in range(1,len(seq)):
@@ -303,5 +303,42 @@ embedding_matrix.shape
 
 # MODEL ARCHITECTURE
 
+#for images
+input_img_features = Input(shape=(2048,))
+inp_img1 = Dropout(0.3)(input_img_features)
+inp_img2 = Dense(256,activation='relu')(inp_img1)
 
+# captions as input
 
+input_captions = Input(shape=(max_len,))
+inp_cap1 = Embedding(input_dim=vocab_size,output_dim=50,mask_zero=True)(input_captions)
+inp_cap2 = Dropout(0.3)(inp_cap1)
+inp_cap3 = LSTM(256)(inp_cap2)
+
+decoder1 = add([inp_img2,inp_cap3])
+decoder2 = Dense(256,activation='relu')(decoder1)
+outputs = Dense(vocab_size,activation='softmax')(decoder2)
+
+#combine model
+
+model = Model(inputs=[input_img_features,input_captions],outputs=outputs)
+
+#Important thing
+
+model.layers[2].set_weights([embedding_matrix])
+model.layers[2].trainable = False
+
+model.compile(loss='categorical_crossentropy',optimizer="adam")
+
+#Training of Model
+
+epochs = 20
+batch_size = 3
+steps = len(train_description)//batch_size
+
+def train():
+    for i in range(epochs):
+        generator = data_generator(train_description,encoding_train,word_to_idx,max_len,batch_size)
+        model.fit_generator(generator,epochs=1,steps_per_epoch=steps,verbose=1)
+        model.save('model_'+str(i)+'.h5')
+train()
