@@ -325,7 +325,7 @@ inp_img2 = Dense(256,activation='relu')(inp_img1)
 
 input_captions = Input(shape=(max_len,),name="input_cap")
 inp_cap1 = Embedding(input_dim=vocab_size,output_dim=50,mask_zero=True)(input_captions)
-inp_cap2 = Dropout(0.5)(inp_cap1)
+inp_cap2 = Dropout(0.3)(inp_cap1)
 inp_cap3 = LSTM(256)(inp_cap2)
 
 decoder1 = add([inp_img2,inp_cap3])
